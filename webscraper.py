@@ -1,16 +1,31 @@
+import smtplib
+from email.message import EmailMessage
+from xml.etree import ElementTree
+
 from bs4 import BeautifulSoup
 import requests
 
-last_update = ""
+# Parse XML for mods being used
+dom = ElementTree.parse('lastupdate.xml')
 
-with open("lastupdate.txt", "r", encoding="utf-16") as file:
-    last_update = file.read()
+# Move mods into list to iterate
+mods = dom.findall('mod')
 
-html_text = requests.get("https://steamcommunity.com/sharedfiles/filedetails/?id=731604991").text
-soup = BeautifulSoup(html_text, 'lxml')
+# Iterate 
+made_changes = False
+for mod in mods:
+    html_text = requests.get(mod.find('mod_link').text).text
+    last_update = mod.find('mod_last_updated').text
+    soup = BeautifulSoup(html_text, 'lxml')
 
-mod_info = soup.find_all('div', class_="detailsStatRight")
-print(f"{last_update}")
-print(mod_info[-1].text)
-if last_update == mod_info[-1].text:
-    print("true")
+    mod_name = soup.find('div', class_="workshopItemTitle").text
+    latest_mod_info = soup.find_all('div', class_="detailsStatRight")
+
+    print(f"{mod_name}: Local update on {last_update}", end='')
+    print(f", Last update on {latest_mod_info[-1].text}")
+    if last_update != latest_mod_info[-1].text:
+        mod.find('mod_last_updated').text = latest_mod_info[-1].text
+        made_changes = True
+        
+if made_changes:
+    dom.write('lastupdate.xml')
